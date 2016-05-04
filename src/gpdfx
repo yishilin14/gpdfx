@@ -53,6 +53,7 @@ class PopRender(object):
         self.height = 1
         self.opened_file = False
         self.n_page = 1
+        self.clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
 
         # Initialize window
         self.win = Gtk.Window()
@@ -65,7 +66,7 @@ class PopRender(object):
         vbox.pack_start(hbox, False, False, 0)
 
         # Open file
-        b_open_file = Gtk.Button("Choose File")
+        b_open_file = Gtk.Button("Open")
         b_open_file.connect("clicked", self.on_file_clicked)
         hbox.pack_start(b_open_file, False, False, 0)
 
@@ -96,6 +97,11 @@ class PopRender(object):
         b_export_pdf = Gtk.Button('Selection to PDF')
         b_export_pdf.connect("clicked", self.on_export)
         hbox.pack_start(b_export_pdf, False, False, 0)
+
+        # Copy area coord
+        b_copy_coord = Gtk.Button('Viewport (LaTeX)')
+        b_copy_coord.connect("clicked", self.on_copy_coord)
+        hbox.pack_start(b_copy_coord, False, False, 0)
 
         # Scrolled windows (display PDF)
         self.sw = Gtk.ScrolledWindow()
@@ -283,13 +289,25 @@ class PopRender(object):
             if ch.run() == Gtk.ResponseType.OK:
                 fnout = ch.get_filename()
             ch.destroy()
-
             if fnout != None:
                 export_pdf(self.fn, fnout, self.n_page, self.sel_x, self.sel_y,
                            self.width - self.sel2_x, self.height - self.sel2_y)
 
             self.statusbar.push(self.context_id,
                                 'Export to file: {}'.format(fnout))
+
+    def on_copy_coord(self, widget):
+        # Here: top left corner = (0,0)
+        llx = min(self.sel_x, self.sel2_x)
+        lly = max(self.sel_y, self.sel2_y)
+        urx = max(self.sel_x, self.sel2_x)
+        ury = min(self.sel_y, self.sel2_y)
+        # Viewport in latex: lower left corner = (0,0)
+        viewport = '{:.2f} {:.2f} {:.2f} {:.2f}'.format(llx, self.height - lly,
+                                                        urx, self.height - ury)
+        self.clipboard.set_text(viewport, -1)
+        self.statusbar.push(self.context_id,
+                            'Copied viewport (LaTeX): ' + viewport)
 
     def main(self):
         Gtk.main()
