@@ -49,41 +49,34 @@ class PopRender(object):
         self.btn_down = False
         self.sel = False
         self.scale = 1
-
-        # Open document
-        self.fn = os.path.expanduser(sys.argv[1])
-        self.fn = os.path.expandvars(self.fn)
-        self.fn = os.path.abspath(self.fn)
-        uri = "file://" + self.fn
-
-        try:
-            self.document = Poppler.Document.new_from_file(uri, None)
-        except:
-            sys.exit(1)
-
-        self.n_pages = self.document.get_n_pages()
-        self.current_page = self.document.get_page(0)
+        self.width = 1
+        self.height = 1
+        self.current_page = None
         self.n_page = 1
-        self.width, self.height = self.current_page.get_size()
 
         # Initialize window
         self.win = Gtk.Window()
         self.win.set_default_size(600, 600)
-        self.win.set_title(self.fn)
+        self.win.set_title("gpdfx")
         self.win.connect("delete-event", Gtk.main_quit)
 
         hbox = Gtk.HBox(False, 0)
         vbox = Gtk.VBox(False, 0)
         vbox.pack_start(hbox, False, False, 0)
 
+        # Open file
+        b_open_file = Gtk.Button("Choose File")
+        b_open_file.connect("clicked", self.on_file_clicked)
+        hbox.pack_start(b_open_file, False, False, 0)
+
         # Page up/down
-        adjust = Gtk.Adjustment(self.n_page, 1, self.n_pages, 1, 5)
-        page_selector = Gtk.SpinButton()
-        page_selector.set_adjustment(adjust)
-        page_selector.connect("value-changed", self.on_page_changed)
+        adjust = Gtk.Adjustment(self.n_page, 1, self.n_page, 1, 5)
+        self.page_selector = Gtk.SpinButton()
+        self.page_selector.set_adjustment(adjust)
+        self.page_selector.connect("value-changed", self.on_page_changed)
         lab = Gtk.Label('Page')
         hbox.pack_start(lab, False, False, 4)
-        hbox.pack_start(page_selector, False, False, 0)
+        hbox.pack_start(self.page_selector, False, False, 0)
 
         # Zoom in/out
         adjust = Gtk.Adjustment(self.scale * 100, 25, 400, 25, 100)
@@ -125,6 +118,49 @@ class PopRender(object):
         # Start window
         self.win.add(vbox)
         self.win.show_all()
+
+    def on_file_clicked(self, widget):
+        dialog = Gtk.FileChooserDialog(
+            "Please choose a file", None, Gtk.FileChooserAction.OPEN,
+            (Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL, Gtk.STOCK_OPEN,
+             Gtk.ResponseType.OK))
+
+        response = dialog.run()
+        if response == Gtk.ResponseType.OK:
+            self.fn = dialog.get_filename()
+
+            # Open document
+            uri = "file://" + self.fn
+            print("File selected: " + uri)
+            try:
+                self.document = Poppler.Document.new_from_file(uri, None)
+            except:
+                sys.exit(1)
+            self.n_pages = self.document.get_n_pages()
+            self.current_page = self.document.get_page(0)
+            self.width, self.height = self.current_page.get_size()
+
+            # Set window title
+            self.win.set_title(self.fn)
+
+            # Set page range
+            self.n_page = 1
+            adjust = Gtk.Adjustment(1, 1, self.n_pages, 1, 5)
+            self.page_selector.set_adjustment(adjust)
+
+            # Load pdf
+            self.scale = min(self.win.get_size().width / self.width,
+                             self.win.get_size().height / self.height)
+            self.dwg.set_size_request(
+                int(self.width * self.scale), int(self.height * self.scale))
+            self.dwg.queue_draw()
+            self.dwg.modify_bg(Gtk.StateFlags.NORMAL,
+                               Gdk.Color(50000, 50000, 50000))
+
+        elif response == Gtk.ResponseType.CANCEL:
+            print("Cancel clicked")
+
+        dialog.destroy()
 
     def sel_pos_clip(self):
         self.sel_x = min(self.sel_x, self.width)
@@ -188,7 +224,8 @@ class PopRender(object):
         cr.set_source_rgb(1, 1, 1)
         cr.rectangle(0, 0, width, height)
         cr.fill()
-        self.current_page.render(cr)
+        if self.current_page != None:
+            self.current_page.render(cr)
 
         if self.sel:
             cr.set_source_rgba(0, 0, 0.5, 0.9)
@@ -242,11 +279,7 @@ def export_pdf(fn, fnout, npage, left, top, right, bottom):
 
 if __name__ == '__main__':
     try:
-        if len(sys.argv) == 2:
-            pop = PopRender()
-            pop.main()
-        else:
-            print("Usage:")
-            print(os.path.basename(sys.argv[0]) + " filename.pdf")
+        pop = PopRender()
+        pop.main()
     except KeyboardInterrupt:
         __name__
