@@ -89,10 +89,6 @@ class Poprender(object):
         b_scan_fonts = Gtk.Button('Selection to PDF')
         b_scan_fonts.connect("clicked", self.on_export)
 
-        b_clear_sel = Gtk.Button('Clear Selection')
-        b_clear_sel.connect("clicked", self.on_clear_sel)
-
-        hbox.pack_start(b_clear_sel, False, False, 4)
         hbox.pack_start(b_scan_fonts, False, False, 0)
 
         self.sw = Gtk.ScrolledWindow()
@@ -200,10 +196,6 @@ class Poprender(object):
     def on_expose(self, widget, event):
         cr = widget.get_property('window').cairo_create()
         self.cr_draw(cr,self.width,self.height,self.scale)
-
-    def on_clear_sel(self, widget):
-        self.sel = False
-        self.dwg.queue_draw()
 
     def on_export(self, widget):
         if self.sel:
