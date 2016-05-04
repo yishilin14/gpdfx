@@ -86,6 +86,10 @@ class Poprender(object):
         hbox.pack_start(lab, False, False, 4)
         hbox.pack_start(scale_selector, False, False, 0)
 
+        b_auto_fig = Gtk.Button('Auto Fit')
+        b_auto_fig.connect("clicked", self.on_auto_fig)
+        hbox.pack_start(b_auto_fig, False, False, 0)
+
         b_scan_fonts = Gtk.Button('Selection to PDF')
         b_scan_fonts.connect("clicked", self.on_export)
 
@@ -192,6 +196,13 @@ class Poprender(object):
             cr.stroke_preserve()
             cr.set_source_rgba(0, 0, 1, 0.2)
             cr.fill()
+
+    def on_auto_fig(self, widget):
+        self.scale = min(self.win.get_size().width / self.width,
+                         self.win.get_size().height / self.height)
+        self.dwg.set_size_request(int(self.width*self.scale),
+                                  int(self.height*self.scale))
+        self.dwg.queue_draw()
 
     def on_expose(self, widget, event):
         cr = widget.get_property('window').cairo_create()
