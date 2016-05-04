@@ -6,6 +6,8 @@
 #    v2[Goldschmidt]: Use expanduser, expandvars.  Use self.fn instead of fn.
 #    v3[Lehner]:      Use self.fn in argument of exportPdf.
 #
+# Copyright (C) 2016 Yishi Lin
+#
 # All programs in this directory and subdirectories are published under the GNU
 # General Public License as described below.
 #
@@ -27,12 +29,9 @@
 # http://www.gnu.org/copyleft/gpl.ja.html
 
 import gi
-from gi import pygtkcompat
-pygtkcompat.enable() 
-pygtkcompat.enable_gtk(version='3.0')
-from gi.repository import Gtk as gtk
+gi.require_version('Gtk', '3.0')
 gi.require_version('Poppler', '0.18')
-from gi.repository import Poppler
+from gi.repository import Poppler, Gtk, Gdk
 import sys, os
 import cairo
 
@@ -42,7 +41,7 @@ class Poprender(object):
         self.fn = os.path.expandvars(self.fn)
         self.fn = os.path.abspath(self.fn)
         uri = "file://" + self.fn
-        
+
         try:
             self.document = Poppler.Document.new_from_file (uri, None)
         except:
@@ -57,49 +56,49 @@ class Poprender(object):
         self.scale = 1
         self.sel = False
 
-        self.win = gtk.Window(gtk.WINDOW_TOPLEVEL)
+        self.win = Gtk.Window()
         self.win.set_default_size(600, 600)
         self.win.set_title(self.fn)
-        self.win.connect("delete-event", gtk.main_quit)
+        self.win.connect("delete-event", Gtk.main_quit)
 
-        adjust = gtk.Adjustment(1, 1, self.n_pages, 1, 5)
-        page_selector = gtk.SpinButton()
+        adjust = Gtk.Adjustment(1, 1, self.n_pages, 1, 5)
+        page_selector = Gtk.SpinButton()
         page_selector.set_adjustment(adjust)
         page_selector.connect("value-changed", self.on_changed)
 
-        lab = gtk.Label('Page')
+        lab = Gtk.Label('Page')
 
-        hbox = gtk.HBox(False, 0)
+        hbox = Gtk.HBox(False, 0)
 
-        vbox = gtk.VBox(False, 0)
+        vbox = Gtk.VBox(False, 0)
         vbox.pack_start(hbox, False, False, 0)
 
         hbox.pack_start(lab, False, False, 4)
         hbox.pack_start(page_selector, False, False, 0)
 
-        adjust = gtk.Adjustment(100, 25, 400, 25, 100)
-        scale_selector = gtk.SpinButton()
+        adjust = Gtk.Adjustment(100, 25, 400, 25, 100)
+        scale_selector = Gtk.SpinButton()
         scale_selector.set_adjustment(adjust)
         scale_selector.connect("value-changed", self.on_scale_changed)
 
-        lab = gtk.Label('Zoom/%')
+        lab = Gtk.Label('Zoom/%')
 
         hbox.pack_start(lab, False, False, 4)
         hbox.pack_start(scale_selector, False, False, 0)
 
-        b_scan_fonts = gtk.Button('Selection to PDF')
+        b_scan_fonts = Gtk.Button('Selection to PDF')
         b_scan_fonts.connect("clicked", self.on_export)
 
-        b_clear_sel = gtk.Button('Clear Selection')
+        b_clear_sel = Gtk.Button('Clear Selection')
         b_clear_sel.connect("clicked", self.on_clear_sel)
 
         hbox.pack_start(b_clear_sel, False, False, 4)
         hbox.pack_start(b_scan_fonts, False, False, 0)
 
-        self.sw = gtk.ScrolledWindow()
-        self.sw.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
+        self.sw = Gtk.ScrolledWindow()
+        self.sw.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
 
-        self.dwg = gtk.DrawingArea()
+        self.dwg = Gtk.DrawingArea()
         self.dwg.set_size_request(int(self.width), int(self.height))
         self.dwg.connect("draw", self.on_expose)
 
@@ -107,12 +106,12 @@ class Poprender(object):
         self.sw.connect("button-release-event", self.on_btn_up)
         self.sw.connect("motion-notify-event", self.on_mouse_move)
 
-        eventbox = gtk.EventBox()
+        eventbox = Gtk.EventBox()
         eventbox.add(self.dwg)
 
         self.sw.add_with_viewport(eventbox)
-        self.dwg.modify_bg(gtk.STATE_NORMAL,
-                           gtk.gdk.Color(50000,50000,50000))
+        self.dwg.modify_bg(Gtk.StateFlags.NORMAL,
+                           Gdk.Color(50000,50000,50000))
 
         vbox.pack_start(self.sw, True, True, 0)
 
@@ -199,7 +198,7 @@ class Poprender(object):
             cr.fill()
 
     def on_expose(self, widget, event):
-        cr = widget.window.cairo_create()
+        cr = widget.get_property('window').cairo_create()
         self.cr_draw(cr,self.width,self.height,self.scale)
 
     def on_clear_sel(self, widget):
@@ -219,13 +218,13 @@ class Poprender(object):
                 self.sel_y=self.sel2_y
                 self.sel2_y=tmp
 
-            ch = gtk.FileChooserDialog("Filename for selection PDF",None,
-                                       gtk.FILE_CHOOSER_ACTION_SAVE,
-                                       (gtk.STOCK_CANCEL,gtk.RESPONSE_CANCEL,
-                                        gtk.STOCK_OPEN,gtk.RESPONSE_OK))
+            ch = Gtk.FileChooserDialog("Filename for selection PDF",None,
+                                       Gtk.FileChooserAction.SAVE,
+                                       (Gtk.STOCK_CANCEL,Gtk.ResponseType.CANCEL,
+                                        Gtk.STOCK_OPEN,Gtk.ResponseType.OK))
             ch.set_do_overwrite_confirmation(True)
             fnout = None
-            if ch.run() == gtk.RESPONSE_OK:
+            if ch.run() == Gtk.ResponseType.OK:
                 fnout = ch.get_filename()
             ch.destroy()
 
@@ -236,7 +235,7 @@ class Poprender(object):
                           self.height-self.sel2_y)
 
     def main(self):
-        gtk.main()
+        Gtk.main()
 
 
 def exportPdf(fn,fnout,npage,left,top,right,bottom):
