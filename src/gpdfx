@@ -61,14 +61,20 @@ class PopRender(object):
         self.win.set_title("gpdfx")
         self.win.connect("delete-event", Gtk.main_quit)
 
-        hbox = Gtk.HBox(False, 0)
         vbox = Gtk.VBox(False, 0)
-        vbox.pack_start(hbox, False, False, 0)
+
+        # Put buttons in a flowbox
+        flowbox = Gtk.FlowBox()
+        flowbox.set_valign(Gtk.Align.START)
+        flowbox.set_min_children_per_line(5)
+        flowbox.set_max_children_per_line(30)
+        flowbox.set_selection_mode(Gtk.SelectionMode.NONE)
+        vbox.pack_start(flowbox, False, False, 0)
 
         # Open file
         b_open_file = Gtk.Button("Open")
         b_open_file.connect("clicked", self.on_file_clicked)
-        hbox.pack_start(b_open_file, False, False, 0)
+        flowbox.add(b_open_file)
 
         # Page up/down
         adjust = Gtk.Adjustment(self.n_page, 1, self.n_page, 1, 5)
@@ -76,8 +82,8 @@ class PopRender(object):
         self.page_selector.set_adjustment(adjust)
         self.page_selector.connect("value-changed", self.on_page_changed)
         lab = Gtk.Label('Page')
-        hbox.pack_start(lab, False, False, 4)
-        hbox.pack_start(self.page_selector, False, False, 0)
+        flowbox.add(lab)
+        flowbox.add(self.page_selector)
 
         # Zoom in/out
         adjust = Gtk.Adjustment(self.scale * 100, 25, 400, 25, 100)
@@ -85,23 +91,23 @@ class PopRender(object):
         scale_selector.set_adjustment(adjust)
         scale_selector.connect("value-changed", self.on_scale_changed)
         lab = Gtk.Label('Zoom')
-        hbox.pack_start(lab, False, False, 4)
-        hbox.pack_start(scale_selector, False, False, 0)
+        flowbox.add(lab)
+        flowbox.add(scale_selector)
 
         # Auto fit
         b_auto_fit = Gtk.Button('Auto Fit')
         b_auto_fit.connect("clicked", self.on_auto_fit)
-        hbox.pack_start(b_auto_fit, False, False, 0)
+        flowbox.add(b_auto_fit)
 
         # Export to PDF
         b_export_pdf = Gtk.Button('Selection to PDF')
         b_export_pdf.connect("clicked", self.on_export)
-        hbox.pack_start(b_export_pdf, False, False, 0)
+        flowbox.add(b_export_pdf)
 
         # Copy area coord
         b_copy_coord = Gtk.Button('Viewport (LaTeX)')
         b_copy_coord.connect("clicked", self.on_copy_coord)
-        hbox.pack_start(b_copy_coord, False, False, 0)
+        flowbox.add(b_copy_coord)
 
         # Scrolled windows (display PDF)
         self.sw = Gtk.ScrolledWindow()
@@ -118,15 +124,11 @@ class PopRender(object):
         eventbox = Gtk.EventBox()
         eventbox.add(self.dwg)
         self.sw.add_with_viewport(eventbox)
-
         vbox.pack_start(self.sw, True, True, 0)
 
-        # the statusbar
+        # The statusbar
         self.statusbar = Gtk.Statusbar()
-        # its context_id - not shown in the UI but needed to uniquely identify
-        # the source of a message
         self.context_id = self.statusbar.get_context_id("example")
-        # we push a message onto the statusbar's stack
         self.statusbar.push(self.context_id, "Please open a file...")
         vbox.pack_start(self.statusbar, False, False, 0)
 
@@ -208,6 +210,10 @@ class PopRender(object):
         self.sel_pos_clip()
         self.dwg.queue_draw()
         self.btn_down = False
+        self.statusbar.push(
+            self.context_id,
+            'Selected area: {:.2f} {:.2f} {:.2f} {:.2f}'.format(
+                self.sel_x, self.sel_y, self.sel2_x, self.sel2_y))
 
     def on_mouse_move(self, widget, event):
         if self.opened_file and self.btn_down:
