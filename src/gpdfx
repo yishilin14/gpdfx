@@ -25,13 +25,16 @@
 #
 # Further information about the GNU GPL is available at:
 # http://www.gnu.org/copyleft/gpl.ja.html
-import pygtk
-pygtk.require('2.0')
-import gtk
-import poppler
+
+import gi
+from gi import pygtkcompat
+pygtkcompat.enable() 
+pygtkcompat.enable_gtk(version='3.0')
+from gi.repository import Gtk as gtk
+gi.require_version('Poppler', '0.18')
+from gi.repository import Poppler
 import sys, os
 import cairo
-
 
 class Poprender(object):
     def __init__(self):
@@ -41,7 +44,7 @@ class Poprender(object):
         uri = "file://" + self.fn
         
         try:
-            self.document = poppler.document_new_from_file (uri, None)
+            self.document = Poppler.Document.new_from_file (uri, None)
         except:
             sys.exit(1)
 
@@ -60,7 +63,8 @@ class Poprender(object):
         self.win.connect("delete-event", gtk.main_quit)
 
         adjust = gtk.Adjustment(1, 1, self.n_pages, 1, 5)
-        page_selector = gtk.SpinButton(adjust, 0, 0);
+        page_selector = gtk.SpinButton()
+        page_selector.set_adjustment(adjust)
         page_selector.connect("value-changed", self.on_changed)
 
         lab = gtk.Label('Page')
@@ -74,7 +78,8 @@ class Poprender(object):
         hbox.pack_start(page_selector, False, False, 0)
 
         adjust = gtk.Adjustment(100, 25, 400, 25, 100)
-        scale_selector = gtk.SpinButton(adjust, 0, 0);
+        scale_selector = gtk.SpinButton()
+        scale_selector.set_adjustment(adjust)
         scale_selector.connect("value-changed", self.on_scale_changed)
 
         lab = gtk.Label('Zoom/%')
@@ -96,7 +101,7 @@ class Poprender(object):
 
         self.dwg = gtk.DrawingArea()
         self.dwg.set_size_request(int(self.width), int(self.height))
-        self.dwg.connect("expose-event", self.on_expose)
+        self.dwg.connect("draw", self.on_expose)
 
         self.sw.connect("button-press-event", self.on_btn_down)
         self.sw.connect("button-release-event", self.on_btn_up)
@@ -113,6 +118,12 @@ class Poprender(object):
 
         self.win.add(vbox)
         self.win.show_all()
+
+        self.sel_x=0
+        self.sel2_x=0
+        self.sel_y=0
+        self.sel2_y=0
+        self.btn_down=False
 
     def sel_pos_clip(self):
         if self.sel_x>self.width:
@@ -140,18 +151,21 @@ class Poprender(object):
         self.sel2_y=event.y/self.scale
         self.sel_pos_clip()
         self.sel = True
+        self.btn_down = True
 
     def on_btn_up(self, widget, event):
         self.sel2_x=event.x/self.scale
         self.sel2_y=event.y/self.scale
         self.sel_pos_clip()
         self.dwg.queue_draw()
+        self.btn_down = False 
 
     def on_mouse_move(self, widget, event):
-        self.sel2_x=event.x/self.scale
-        self.sel2_y=event.y/self.scale
-        self.sel_pos_clip()
-        self.dwg.queue_draw()
+        if self.btn_down:
+            self.sel2_x=event.x/self.scale
+            self.sel2_y=event.y/self.scale
+            self.sel_pos_clip()
+            self.dwg.queue_draw()
 
     def on_changed(self, widget):
         self.n_page = widget.get_value_as_int()
@@ -236,7 +250,7 @@ if __name__ == '__main__':
             pop = Poprender()
             pop.main()
         else:
-            print "Usage:"
-            print os.path.basename(sys.argv[0]) + " filename.pdf"
+            print("Usage:")
+            print(os.path.basename(sys.argv[0]) + " filename.pdf")
     except KeyboardInterrupt:
         __name__
