@@ -51,7 +51,7 @@ class PopRender(object):
         self.scale = 1
         self.width = 1
         self.height = 1
-        self.current_page = None
+        self.opened_file = False
         self.n_page = 1
 
         # Initialize window
@@ -136,6 +136,8 @@ class PopRender(object):
                 self.document = Poppler.Document.new_from_file(uri, None)
             except:
                 sys.exit(1)
+
+            self.opened_file = True
             self.n_pages = self.document.get_n_pages()
             self.current_page = self.document.get_page(0)
             self.width, self.height = self.current_page.get_size()
@@ -190,51 +192,54 @@ class PopRender(object):
         self.btn_down = False
 
     def on_mouse_move(self, widget, event):
-        if self.btn_down:
+        if self.opened_file and self.btn_down:
             self.sel2_x = event.x / self.scale
             self.sel2_y = event.y / self.scale
             self.sel_pos_clip()
             self.dwg.queue_draw()
 
     def on_page_changed(self, widget):
-        self.n_page = widget.get_value_as_int()
-        self.current_page = self.document.get_page(widget.get_value_as_int() -
-                                                   1)
-        self.width, self.height = self.current_page.get_size()
-        self.dwg.set_size_request(
-            int(self.width * self.scale), int(self.height * self.scale))
-        self.dwg.queue_draw()
+        if self.opened_file:
+            self.n_page = widget.get_value_as_int()
+            page = widget.get_value_as_int() - 1
+            self.current_page = self.document.get_page(page)
+            self.width, self.height = self.current_page.get_size()
+            self.dwg.set_size_request(
+                int(self.width * self.scale), int(self.height * self.scale))
+            self.dwg.queue_draw()
 
     def on_auto_fit(self, widget):
-        self.scale = min(self.win.get_size().width / self.width,
-                         self.win.get_size().height / self.height)
-        self.dwg.set_size_request(
-            int(self.width * self.scale), int(self.height * self.scale))
-        self.dwg.queue_draw()
+        if self.opened_file:
+            self.scale = min(self.win.get_size().width / self.width,
+                             self.win.get_size().height / self.height)
+            self.dwg.set_size_request(
+                int(self.width * self.scale), int(self.height * self.scale))
+            self.dwg.queue_draw()
 
     def on_scale_changed(self, widget):
-        self.scale = widget.get_value_as_int() / 100.0
-        self.dwg.set_size_request(
-            int(self.width * self.scale), int(self.height * self.scale))
-        self.dwg.queue_draw()
+        if self.opened_file:
+            self.scale = widget.get_value_as_int() / 100.0
+            self.dwg.set_size_request(
+                int(self.width * self.scale), int(self.height * self.scale))
+            self.dwg.queue_draw()
 
     def cr_draw(self, cr, width, height, scale):
-        if scale != 1:
-            cr.scale(scale, scale)
-        cr.set_source_rgb(1, 1, 1)
-        cr.rectangle(0, 0, width, height)
-        cr.fill()
-        if self.current_page != None:
+        if self.opened_file:
+            if scale != 1:
+                cr.scale(scale, scale)
+            cr.set_source_rgb(1, 1, 1)
+            cr.rectangle(0, 0, width, height)
+            cr.fill()
             self.current_page.render(cr)
 
-        if self.sel:
-            cr.set_source_rgba(0, 0, 0.5, 0.9)
-            cr.set_line_width(1)
-            cr.rectangle(self.sel_x, self.sel_y, self.sel2_x - self.sel_x,
-                         self.sel2_y - self.sel_y)
-            cr.stroke_preserve()
-            cr.set_source_rgba(0, 0, 1, 0.2)
-            cr.fill()
+            if self.sel:
+                cr.set_source_rgba(0, 0, 0.5, 0.9)
+                cr.set_line_width(1)
+                cr.rectangle(self.sel_x, self.sel_y, self.sel2_x - self.sel_x,
+                             self.sel2_y - self.sel_y)
+                cr.stroke_preserve()
+                cr.set_source_rgba(0, 0, 1, 0.2)
+                cr.fill()
 
     def on_expose(self, widget, event):
         cr = widget.get_property('window').cairo_create()
