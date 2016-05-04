@@ -115,6 +115,15 @@ class PopRender(object):
 
         vbox.pack_start(self.sw, True, True, 0)
 
+        # the statusbar
+        self.statusbar = Gtk.Statusbar()
+        # its context_id - not shown in the UI but needed to uniquely identify
+        # the source of a message
+        self.context_id = self.statusbar.get_context_id("example")
+        # we push a message onto the statusbar's stack
+        self.statusbar.push(self.context_id, "Please open a file...")
+        vbox.pack_start(self.statusbar, False, False, 0)
+
         # Start window
         self.win.add(vbox)
         self.win.show_all()
@@ -137,7 +146,6 @@ class PopRender(object):
             except:
                 sys.exit(1)
 
-            self.opened_file = True
             self.n_pages = self.document.get_n_pages()
             self.current_page = self.document.get_page(0)
             self.width, self.height = self.current_page.get_size()
@@ -158,6 +166,10 @@ class PopRender(object):
             self.dwg.queue_draw()
             self.dwg.modify_bg(Gtk.StateFlags.NORMAL,
                                Gdk.Color(50000, 50000, 50000))
+            self.opened_file = True
+
+            # Update status bar
+            self.statusbar.push(self.context_id, "File: {}".format(self.fn))
 
         elif response == Gtk.ResponseType.CANCEL:
             print("Cancel clicked")
@@ -197,6 +209,10 @@ class PopRender(object):
             self.sel2_y = event.y / self.scale
             self.sel_pos_clip()
             self.dwg.queue_draw()
+            self.statusbar.push(
+                self.context_id,
+                'Selected area: {:.2f} {:.2f} {:.2f} {:.2f}'.format(
+                    self.sel_x, self.sel_y, self.sel2_x, self.sel2_y))
 
     def on_page_changed(self, widget):
         if self.opened_file:
@@ -271,6 +287,9 @@ class PopRender(object):
             if fnout != None:
                 export_pdf(self.fn, fnout, self.n_page, self.sel_x, self.sel_y,
                            self.width - self.sel2_x, self.height - self.sel2_y)
+
+            self.statusbar.push(self.context_id,
+                                'Export to file: {}'.format(fnout))
 
     def main(self):
         Gtk.main()
