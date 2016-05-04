@@ -4,7 +4,7 @@
 #
 #    v1[Lehner]:      Original version
 #    v2[Goldschmidt]: Use expanduser, expandvars.  Use self.fn instead of fn.
-#    v3[Lehner]:      Use self.fn in argument of exportPdf.
+#    v3[Lehner]:      Use self.fn in argument of export_pdf.
 #
 # Copyright (C) 2016 Yishi Lin
 #
@@ -31,156 +31,158 @@
 import gi
 gi.require_version('Gtk', '3.0')
 gi.require_version('Poppler', '0.18')
-from gi.repository import Poppler, Gtk, Gdk
-import sys, os
+from gi.repository import Gtk
+from gi.repository import Gdk
+from gi.repository import Poppler
+import sys
+import os
 import cairo
 
-class Poprender(object):
+
+class PopRender(object):
     def __init__(self):
+        # Initialize variables
+        self.sel_x = 0
+        self.sel2_x = 0
+        self.sel_y = 0
+        self.sel2_y = 0
+        self.btn_down = False
+        self.sel = False
+        self.scale = 1
+
+        # Open document
         self.fn = os.path.expanduser(sys.argv[1])
         self.fn = os.path.expandvars(self.fn)
         self.fn = os.path.abspath(self.fn)
         uri = "file://" + self.fn
 
         try:
-            self.document = Poppler.Document.new_from_file (uri, None)
+            self.document = Poppler.Document.new_from_file(uri, None)
         except:
             sys.exit(1)
 
         self.n_pages = self.document.get_n_pages()
-
         self.current_page = self.document.get_page(0)
         self.n_page = 1
         self.width, self.height = self.current_page.get_size()
 
-        self.scale = 1
-        self.sel = False
-
+        # Initialize window
         self.win = Gtk.Window()
         self.win.set_default_size(600, 600)
         self.win.set_title(self.fn)
         self.win.connect("delete-event", Gtk.main_quit)
 
-        adjust = Gtk.Adjustment(1, 1, self.n_pages, 1, 5)
-        page_selector = Gtk.SpinButton()
-        page_selector.set_adjustment(adjust)
-        page_selector.connect("value-changed", self.on_changed)
-
-        lab = Gtk.Label('Page')
-
         hbox = Gtk.HBox(False, 0)
-
         vbox = Gtk.VBox(False, 0)
         vbox.pack_start(hbox, False, False, 0)
 
+        # Page up/down
+        adjust = Gtk.Adjustment(self.n_page, 1, self.n_pages, 1, 5)
+        page_selector = Gtk.SpinButton()
+        page_selector.set_adjustment(adjust)
+        page_selector.connect("value-changed", self.on_page_changed)
+        lab = Gtk.Label('Page')
         hbox.pack_start(lab, False, False, 4)
         hbox.pack_start(page_selector, False, False, 0)
 
-        adjust = Gtk.Adjustment(100, 25, 400, 25, 100)
+        # Zoom in/out
+        adjust = Gtk.Adjustment(self.scale * 100, 25, 400, 25, 100)
         scale_selector = Gtk.SpinButton()
         scale_selector.set_adjustment(adjust)
         scale_selector.connect("value-changed", self.on_scale_changed)
-
-        lab = Gtk.Label('Zoom/%')
-
+        lab = Gtk.Label('Zoom')
         hbox.pack_start(lab, False, False, 4)
         hbox.pack_start(scale_selector, False, False, 0)
 
-        b_auto_fig = Gtk.Button('Auto Fit')
-        b_auto_fig.connect("clicked", self.on_auto_fig)
-        hbox.pack_start(b_auto_fig, False, False, 0)
+        # Auto fit
+        b_auto_fit = Gtk.Button('Auto Fit')
+        b_auto_fit.connect("clicked", self.on_auto_fit)
+        hbox.pack_start(b_auto_fit, False, False, 0)
 
-        b_scan_fonts = Gtk.Button('Selection to PDF')
-        b_scan_fonts.connect("clicked", self.on_export)
+        # Export to PDF
+        b_export_pdf = Gtk.Button('Selection to PDF')
+        b_export_pdf.connect("clicked", self.on_export)
+        hbox.pack_start(b_export_pdf, False, False, 0)
 
-        hbox.pack_start(b_scan_fonts, False, False, 0)
-
+        # Scrolled windows (display PDF)
         self.sw = Gtk.ScrolledWindow()
         self.sw.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
-
         self.dwg = Gtk.DrawingArea()
         self.dwg.set_size_request(int(self.width), int(self.height))
         self.dwg.connect("draw", self.on_expose)
 
+        # Connect events
         self.sw.connect("button-press-event", self.on_btn_down)
         self.sw.connect("button-release-event", self.on_btn_up)
         self.sw.connect("motion-notify-event", self.on_mouse_move)
 
         eventbox = Gtk.EventBox()
         eventbox.add(self.dwg)
-
         self.sw.add_with_viewport(eventbox)
-        self.dwg.modify_bg(Gtk.StateFlags.NORMAL,
-                           Gdk.Color(50000,50000,50000))
 
         vbox.pack_start(self.sw, True, True, 0)
 
+        # Start window
         self.win.add(vbox)
         self.win.show_all()
 
-        self.sel_x=0
-        self.sel2_x=0
-        self.sel_y=0
-        self.sel2_y=0
-        self.btn_down=False
-
     def sel_pos_clip(self):
-        if self.sel_x>self.width:
-            self.sel_x=self.width
-        if self.sel2_x>self.width:
-            self.sel2_x=self.width
-        if self.sel_y>self.height:
-            self.sel_y=self.height
-        if self.sel2_y>self.height:
-            self.sel2_y=self.height
+        self.sel_x = min(self.sel_x, self.width)
+        self.sel_y = min(self.sel_y, self.height)
+        self.sel2_x = min(self.sel2_x, self.width)
+        self.sel2_y = min(self.sel2_y, self.height)
 
-        if self.sel_x<0:
-            self.sel_x=0
-        if self.sel2_x<0:
-            self.sel2_x=0
-        if self.sel_y<0:
-            self.sel_y=0
-        if self.sel2_y<0:
-            self.sel2_y=0
+        self.sel_x = max(self.sel_x, 0)
+        self.sel_y = max(self.sel_y, 0)
+        self.sel2_x = max(self.sel2_x, 0)
+        self.sel2_y = max(self.sel2_y, 0)
 
     def on_btn_down(self, widget, event):
-        self.sel_x=event.x/self.scale
-        self.sel_y=event.y/self.scale
-        self.sel2_x=event.x/self.scale
-        self.sel2_y=event.y/self.scale
+        self.sel_x = event.x / self.scale
+        self.sel_y = event.y / self.scale
+        self.sel2_x = event.x / self.scale
+        self.sel2_y = event.y / self.scale
         self.sel_pos_clip()
         self.sel = True
         self.btn_down = True
 
     def on_btn_up(self, widget, event):
-        self.sel2_x=event.x/self.scale
-        self.sel2_y=event.y/self.scale
+        self.sel2_x = event.x / self.scale
+        self.sel2_y = event.y / self.scale
         self.sel_pos_clip()
         self.dwg.queue_draw()
-        self.btn_down = False 
+        self.btn_down = False
 
     def on_mouse_move(self, widget, event):
         if self.btn_down:
-            self.sel2_x=event.x/self.scale
-            self.sel2_y=event.y/self.scale
+            self.sel2_x = event.x / self.scale
+            self.sel2_y = event.y / self.scale
             self.sel_pos_clip()
             self.dwg.queue_draw()
 
-    def on_changed(self, widget):
+    def on_page_changed(self, widget):
         self.n_page = widget.get_value_as_int()
-        self.current_page = self.document.get_page(widget.get_value_as_int()-1)
+        self.current_page = self.document.get_page(widget.get_value_as_int() -
+                                                   1)
         self.width, self.height = self.current_page.get_size()
-        self.dwg.set_size_request(int(self.width*self.scale),
-                                  int(self.height*self.scale))
+        self.dwg.set_size_request(
+            int(self.width * self.scale), int(self.height * self.scale))
+        self.dwg.queue_draw()
+
+    def on_auto_fit(self, widget):
+        self.scale = min(self.win.get_size().width / self.width,
+                         self.win.get_size().height / self.height)
+        self.dwg.set_size_request(
+            int(self.width * self.scale), int(self.height * self.scale))
         self.dwg.queue_draw()
 
     def on_scale_changed(self, widget):
-        self.scale = widget.get_value_as_int()/100.0
-        self.dwg.set_size_request(int(self.width*self.scale),
-                                  int(self.height*self.scale))
+        self.scale = widget.get_value_as_int() / 100.0
+        self.dwg.set_size_request(
+            int(self.width * self.scale), int(self.height * self.scale))
         self.dwg.queue_draw()
 
-    def cr_draw(self,cr,width,height,scale):
+    def cr_draw(self, cr, width, height, scale):
         if scale != 1:
             cr.scale(scale, scale)
         cr.set_source_rgb(1, 1, 1)
@@ -191,65 +193,57 @@ class Poprender(object):
         if self.sel:
             cr.set_source_rgba(0, 0, 0.5, 0.9)
             cr.set_line_width(1)
-            cr.rectangle(self.sel_x,self.sel_y,self.sel2_x-self.sel_x,
-                         self.sel2_y-self.sel_y)
+            cr.rectangle(self.sel_x, self.sel_y, self.sel2_x - self.sel_x,
+                         self.sel2_y - self.sel_y)
             cr.stroke_preserve()
             cr.set_source_rgba(0, 0, 1, 0.2)
             cr.fill()
 
-    def on_auto_fig(self, widget):
-        self.scale = min(self.win.get_size().width / self.width,
-                         self.win.get_size().height / self.height)
-        self.dwg.set_size_request(int(self.width*self.scale),
-                                  int(self.height*self.scale))
-        self.dwg.queue_draw()
-
     def on_expose(self, widget, event):
         cr = widget.get_property('window').cairo_create()
-        self.cr_draw(cr,self.width,self.height,self.scale)
+        self.cr_draw(cr, self.width, self.height, self.scale)
 
     def on_export(self, widget):
         if self.sel:
 
-            if self.sel_x>self.sel2_x:
-                tmp=self.sel_x
-                self.sel_x=self.sel2_x
-                self.sel2_x=tmp
+            if self.sel_x > self.sel2_x:
+                tmp = self.sel_x
+                self.sel_x = self.sel2_x
+                self.sel2_x = tmp
 
-            if self.sel_y>self.sel2_y:
-                tmp=self.sel_y
-                self.sel_y=self.sel2_y
-                self.sel2_y=tmp
+            if self.sel_y > self.sel2_y:
+                tmp = self.sel_y
+                self.sel_y = self.sel2_y
+                self.sel2_y = tmp
 
-            ch = Gtk.FileChooserDialog("Filename for selection PDF",None,
-                                       Gtk.FileChooserAction.SAVE,
-                                       (Gtk.STOCK_CANCEL,Gtk.ResponseType.CANCEL,
-                                        Gtk.STOCK_OPEN,Gtk.ResponseType.OK))
+            ch = Gtk.FileChooserDialog(
+                "Filename for selection PDF", None, Gtk.FileChooserAction.SAVE,
+                (Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL, Gtk.STOCK_OPEN,
+                 Gtk.ResponseType.OK))
             ch.set_do_overwrite_confirmation(True)
             fnout = None
             if ch.run() == Gtk.ResponseType.OK:
                 fnout = ch.get_filename()
             ch.destroy()
 
-            if fnout!=None:
-                exportPdf(self.fn,fnout,self.n_page,
-                          self.sel_x,self.sel_y,
-                          self.width-self.sel2_x,
-                          self.height-self.sel2_y)
+            if fnout != None:
+                export_pdf(self.fn, fnout, self.n_page, self.sel_x, self.sel_y,
+                           self.width - self.sel2_x, self.height - self.sel2_y)
 
     def main(self):
         Gtk.main()
 
 
-def exportPdf(fn,fnout,npage,left,top,right,bottom):
-    os.system("clipdfx \"" + fn + "\" \"" + fnout + "\" " + str(npage) + " " 
-              + str(left) + " " + str(top) + " " + str(right) + " " 
-              + str(bottom))
+def export_pdf(fn, fnout, npage, left, top, right, bottom):
+    os.system("clipdfx \"" + fn + "\" \"" + fnout + "\" " + str(npage) + " " +
+              str(left) + " " + str(top) + " " + str(right) + " " + str(
+                  bottom))
+
 
 if __name__ == '__main__':
     try:
-        if len(sys.argv)==2:
-            pop = Poprender()
+        if len(sys.argv) == 2:
+            pop = PopRender()
             pop.main()
         else:
             print("Usage:")
