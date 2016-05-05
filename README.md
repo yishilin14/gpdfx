@@ -1,7 +1,7 @@
-gpdfx - a graphical tool to extract parts of a PDF as a PDF
+gpdfx-ng - a graphical tool to extract parts of a PDF as a PDF
 ===============================
 
-`gpdfx` is a GTK application written in Python using the Poppler library
+`gpdfx-ng` is a GTK application written in Python using the Poppler library
 to render the PDF. It uses pdfTeX and PDFCrop to create the extracted
 PDF.
 
@@ -14,15 +14,12 @@ My improvements to the ancient `gpdfx`:
 - Add a status bar.
 
 # Install
-
 Dependency
 - Python2 or Python3
 - poppler-glib
 - python-gobject
 - gtk3
 - python-cairo
-
-Clone files in `gpdfx/src` to some directory in your PATH
 
 # Usage
 - Run `gpdfx` and open a pdf file.
