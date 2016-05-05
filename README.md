@@ -21,6 +21,9 @@ Dependency
 - gtk3
 - python-cairo
 
+The one line script `install.sh` helps to install (copy) `gpdfx` to your PATH,
+in you want.
+
 # Usage
 - Run `gpdfx` and open a pdf file.
 - Select an area.
