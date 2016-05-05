@@ -37,7 +37,8 @@ from gi.repository import Poppler
 import sys
 import os
 import cairo
-
+import tempfile
+import shutil
 
 class PopRender(object):
     def __init__(self):
@@ -320,10 +321,39 @@ class PopRender(object):
 
 
 def export_pdf(fn, fnout, npage, left, top, right, bottom):
-    os.system("clipdfx \"" + fn + "\" \"" + fnout + "\" " + str(npage) + " " +
-              str(left) + " " + str(top) + " " + str(right) + " " + str(
-                  bottom))
+    # Check current working directory.
+    current_dir = os.getcwd()
 
+    # Create a temporary directory
+    temp_dir = tempfile.mkdtemp()
+
+    # Use a simple filename for LaTeX with .pdf extension
+    shutil.copy(fn, os.path.join(temp_dir, 'i.pdf'))
+
+    # cd temp dir
+    os.chdir(temp_dir)
+
+    # Use LaTeX to extract the
+    lines = """
+\\documentclass{{article}}
+\\usepackage[left=0cm,right=0cm,bottom=0cm,top=0cm]{{geometry}}
+\\usepackage{{graphicx}}
+\\begin{{document}}
+\\includegraphics[page={0},trim={1} {2} {3} {4},clip]{{{5}/i.pdf}}
+\\end{{document}}
+             """.format(npage, left, bottom, right, top, temp_dir)
+    with open('o.tex', 'w') as output:
+        output.write(lines)
+    os.system('pdflatex ' + 'o.tex')
+    os.system('pdfcrop ' + 'o.pdf')
+
+    # Use ghostscript to remove invisible content
+    os.system('gs -q -sDEVICE=pdfwrite -dNOPAUSE -dBATCH '
+              + '-sOutputFile=' + fnout + ' -f o-crop.pdf')
+
+    # cd back
+    os.chdir(current_dir)
+    shutil.rmtree(temp_dir)
 
 if __name__ == '__main__':
     try:
