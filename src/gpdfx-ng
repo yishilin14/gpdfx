@@ -133,9 +133,50 @@ class PopRender(object):
         self.statusbar.push(self.context_id, "Please open a file...")
         vbox.pack_start(self.statusbar, False, False, 0)
 
+        # Try to open argv[1]
+        if len(sys.argv)==2:
+            self.fn = os.path.expanduser(sys.argv[1])
+            self.fn = os.path.expandvars(self.fn)
+            self.fn = os.path.abspath(self.fn)
+            self.open_file()
+
         # Start window
         self.win.add(vbox)
         self.win.show_all()
+
+    def open_file(self):
+        # Open document
+        uri = "file://" + self.fn
+        print("File selected: " + uri)
+        try:
+            self.document = Poppler.Document.new_from_file(uri, None)
+        except:
+            sys.exit(1)
+
+        self.n_pages = self.document.get_n_pages()
+        self.current_page = self.document.get_page(0)
+        self.width, self.height = self.current_page.get_size()
+
+        # Set window title
+        self.win.set_title(self.fn)
+
+        # Set page range
+        self.n_page = 1
+        adjust = Gtk.Adjustment(1, 1, self.n_pages, 1, 5)
+        self.page_selector.set_adjustment(adjust)
+
+        # Load pdf
+        self.scale = min(self.win.get_size().width / self.width,
+                         self.win.get_size().height / self.height)
+        self.dwg.set_size_request(
+            int(self.width * self.scale), int(self.height * self.scale))
+        self.dwg.queue_draw()
+        self.dwg.modify_bg(Gtk.StateFlags.NORMAL,
+                           Gdk.Color(50000, 50000, 50000))
+        self.opened_file = True
+
+        # Update status bar
+        self.statusbar.push(self.context_id, "File: {}".format(self.fn))
 
     def on_file_clicked(self, widget):
         dialog = Gtk.FileChooserDialog(
@@ -146,39 +187,7 @@ class PopRender(object):
         response = dialog.run()
         if response == Gtk.ResponseType.OK:
             self.fn = dialog.get_filename()
-
-            # Open document
-            uri = "file://" + self.fn
-            print("File selected: " + uri)
-            try:
-                self.document = Poppler.Document.new_from_file(uri, None)
-            except:
-                sys.exit(1)
-
-            self.n_pages = self.document.get_n_pages()
-            self.current_page = self.document.get_page(0)
-            self.width, self.height = self.current_page.get_size()
-
-            # Set window title
-            self.win.set_title(self.fn)
-
-            # Set page range
-            self.n_page = 1
-            adjust = Gtk.Adjustment(1, 1, self.n_pages, 1, 5)
-            self.page_selector.set_adjustment(adjust)
-
-            # Load pdf
-            self.scale = min(self.win.get_size().width / self.width,
-                             self.win.get_size().height / self.height)
-            self.dwg.set_size_request(
-                int(self.width * self.scale), int(self.height * self.scale))
-            self.dwg.queue_draw()
-            self.dwg.modify_bg(Gtk.StateFlags.NORMAL,
-                               Gdk.Color(50000, 50000, 50000))
-            self.opened_file = True
-
-            # Update status bar
-            self.statusbar.push(self.context_id, "File: {}".format(self.fn))
+            self.open_file()
 
         elif response == Gtk.ResponseType.CANCEL:
             print("Cancel clicked")

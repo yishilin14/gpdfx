@@ -25,7 +25,7 @@ The one line script `install.sh` helps to install (copy) `gpdfx-ng` to your PATH
 in you want.
 
 # Usage
-- Run `gpdfx-ng` and open a pdf file.
+- Run `gpdfx-ng` and open a pdf file. You can also pass a file name the through command line argument.
 - Select an area.
 - Export the selection to a pdf file, or copy the "viewport" to the clipboard.
 
