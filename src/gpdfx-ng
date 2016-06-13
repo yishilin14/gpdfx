@@ -344,13 +344,15 @@ def export_pdf(fn, fnout, npage, left, top, right, bottom):
 
     # Use LaTeX to extract the
     lines = """
-\\documentclass{{article}}
-\\usepackage[left=0cm,right=0cm,bottom=0cm,top=0cm]{{geometry}}
+\\documentclass{{standalone}}
 \\usepackage{{graphicx}}
 \\begin{{document}}
 \\includegraphics[page={0},trim={1} {2} {3} {4},clip]{{{5}/i.pdf}}
 \\end{{document}}
              """.format(npage, left, bottom, right, top, temp_dir)
+
+    print(left,bottom,right,top)
+
     with open('o.tex', 'w') as output:
         output.write(lines)
     os.system('pdflatex ' + 'o.tex')
